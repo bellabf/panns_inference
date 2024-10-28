@@ -1,0 +1,2 @@
+include README.md
+recursive-include panns_inference/data *.csv

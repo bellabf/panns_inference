@@ -1,46 +1,47 @@
-import os
-import urllib.request
-import numpy as np
 import csv
+import importlib.resources
 from pathlib import Path
+import numpy as np
+from typing import List, Dict
 
-sample_rate = 32000
-labels_csv_path = Path.home() / 'panns_data' / 'class_labels_indices.csv'
+# Constants
+SAMPLE_RATE = 32000
 
-if not labels_csv_path.exists():
-    labels_csv_path.parent.mkdir(parents=True, exist_ok=True)
+def load_label_data() -> tuple[List[str], List[str]]:
+    """
+    Load and parse the class labels CSV file from the package data.
     
+    Returns:
+        tuple: (list of label IDs, list of label names)
+    """
     try:
-        print(f"Downloading labels to {labels_csv_path}")
-        url = 'http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/class_labels_indices.csv'
-        with urllib.request.urlopen(url) as ifh:
-            labels_csv_path.write_bytes(ifh.read())
+        # Get the CSV file from package data
+        with importlib.resources.files('panns_inference.data').joinpath('class_labels_indices.csv').open('r') as f:
+            reader = csv.reader(f, delimiter=',')
+            next(reader)  # Skip header row
+            rows = list(reader)
+        
+        # Each label has a unique id such as "/m/068hy"
+        ids = [row[1] for row in rows]
+        labels = [row[2] for row in rows]
+        
+        return ids, labels
     except Exception as e:
-        print(f"Error downloading labels: {e}")
-        raise
+        raise RuntimeError(f"Failed to load label data: {str(e)}")
 
-# Load label
-try:
-    with labels_csv_path.open('r') as f:
-        reader = csv.reader(f, delimiter=',')
-        lines = list(reader)
-except Exception as e:
-    print(f"Error reading labels from {labels_csv_path}: {e}")
-    raise
+# Load label data
+ids, labels = load_label_data()
 
+# Global variables
+CLASSES_NUM = len(labels)
 
-labels = []
-ids = []    # Each label has a unique id such as "/m/068hy"
-for i1 in range(1, len(lines)):
-    id = lines[i1][1]
-    label = lines[i1][2]
-    ids.append(id)
-    labels.append(label)
+# Mapping dictionaries
+LB_TO_IX: Dict[str, int] = {label: i for i, label in enumerate(labels)}
+IX_TO_LB: Dict[int, str] = {i: label for i, label in enumerate(labels)}
+ID_TO_IX: Dict[str, int] = {id: i for i, id in enumerate(ids)}
+IX_TO_ID: Dict[int, str] = {i: id for i, id in enumerate(ids)}
 
-classes_num = len(labels)
-
-lb_to_ix = {label : i for i, label in enumerate(labels)}
-ix_to_lb = {i : label for i, label in enumerate(labels)}
-
-id_to_ix = {id : i for i, id in enumerate(ids)}
-ix_to_id = {i : id for i, id in enumerate(ids)}
+# Validate data
+assert len(labels) == len(ids), "Mismatch between number of labels and IDs"
+assert all(i in IX_TO_LB for i in range(CLASSES_NUM)), "Missing indices in label mapping"
+assert all(i in IX_TO_ID for i in range(CLASSES_NUM)), "Missing indices in ID mapping"
