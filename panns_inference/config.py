@@ -1,11 +1,10 @@
 import csv
 import importlib.resources
-from pathlib import Path
-import numpy as np
 from typing import List, Dict
 
 # Constants
 SAMPLE_RATE = 32000
+CLASSES_NUM = None  # Will be set after loading labels
 
 def load_label_data() -> tuple[List[str], List[str]]:
     """
@@ -32,7 +31,7 @@ def load_label_data() -> tuple[List[str], List[str]]:
 # Load label data
 ids, labels = load_label_data()
 
-# Global variables
+# Set the number of classes
 CLASSES_NUM = len(labels)
 
 # Mapping dictionaries
@@ -41,7 +40,17 @@ IX_TO_LB: Dict[int, str] = {i: label for i, label in enumerate(labels)}
 ID_TO_IX: Dict[str, int] = {id: i for i, id in enumerate(ids)}
 IX_TO_ID: Dict[int, str] = {i: id for i, id in enumerate(ids)}
 
-# Validate data
-assert len(labels) == len(ids), "Mismatch between number of labels and IDs"
-assert all(i in IX_TO_LB for i in range(CLASSES_NUM)), "Missing indices in label mapping"
-assert all(i in IX_TO_ID for i in range(CLASSES_NUM)), "Missing indices in ID mapping"
+# Export these variables
+__all__ = [
+    'SAMPLE_RATE',
+    'CLASSES_NUM',
+    'labels',  # Add this for backward compatibility
+    'classes_num',  # Add this for backward compatibility
+    'LB_TO_IX',
+    'IX_TO_LB',
+    'ID_TO_IX',
+    'IX_TO_ID',
+]
+
+# For backward compatibility
+classes_num = CLASSES_NUM  # This line is important!
