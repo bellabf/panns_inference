@@ -6,35 +6,84 @@ import matplotlib.pyplot as plt
 import torch
 from pathlib import Path
 
+import urllib.request
+import ssl
+import certifi
+
 from .pytorch_utils import move_data_to_device
 from .models import Cnn14, Cnn14_DecisionLevelMax
 from .config import labels, classes_num
 
-
 def create_folder(fd):
-    if not os.path.exists(fd):
-        os.makedirs(fd)
-        
+    """Create folder if it doesn't exist using pathlib."""
+    Path(fd).mkdir(parents=True, exist_ok=True)
+
         
 def get_filename(path):
-    path = os.path.realpath(path)
-    na_ext = path.split('/')[-1]
-    na = os.path.splitext(na_ext)[0]
-    return na
+    """Extract filename without extension using pathlib."""
+    path = Path(path).resolve()
+    return path.stem
+
+def get_default_checkpoint_path(model_name):
+    """Get default checkpoint path in a cross-platform way."""
+
+    base_path = Path.home() / '.panns_data'
+    return base_path / f'{model_name}.pth'
+
+def download_checkpoint(checkpoint_path, zenodo_url):
+    """Download checkpoint if it doesn't exist or is incomplete."""
+    checkpoint_path = Path(checkpoint_path)
+    create_folder(checkpoint_path.parent)
+
+    if not checkpoint_path.exists() or checkpoint_path.stat().st_size < 3e8:
+        print(f'Downloading checkpoint to {checkpoint_path}...')
+
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+        
+    def show_progress(block_num, block_size, total_size):
+        downloaded = block_num * block_size
+        percent = int(downloaded * 100 / total_size)
+        print(f"\rDownload progress: {percent}%", end='')
+            
+    try:
+        urllib.request.urlretrieve(
+                zenodo_url,
+                str(checkpoint_path),
+                reporthook=show_progress
+        )
+        print("\nDownload completed!")
+    except Exception as e:
+        print(f"\nError downloading checkpoint: {e}")
+        if checkpoint_path.exists():
+            checkpoint_path.unlink()  # Remove partial download
+        raise
+
+
+def load_checkpoint(checkpoint_path, device):
+    """Safely load checkpoint with proper warning handling."""
+    try:
+        # Use weights_only=True for security
+        return torch.load(str(checkpoint_path), map_location=device, weights_only=True)
+    except RuntimeError as e:
+        # Fallback for older checkpoints that might not work with weights_only=True
+        print("Warning: Unable to load with weights_only=True, falling back to default loading method")
+        return torch.load(str(checkpoint_path), map_location=device)
 
 
 class AudioTagging(object):
     def __init__(self, model=None, checkpoint_path=None, device='cuda'):
         """Audio tagging inference wrapper.
         """
-        if not checkpoint_path:
-            checkpoint_path='{}/panns_data/Cnn14_mAP=0.431.pth'.format(str(Path.home()))
-        print('Checkpoint path: {}'.format(checkpoint_path))
+        if checkpoint_path is None:
+            checkpoint_path = get_default_checkpoint_path('Cnn14_mAP=0.431')
         
-        if not os.path.exists(checkpoint_path) or os.path.getsize(checkpoint_path) < 3e8:
-            create_folder(os.path.dirname(checkpoint_path))
-            zenodo_path = 'https://zenodo.org/record/3987831/files/Cnn14_mAP%3D0.431.pth?download=1'
-            os.system('wget -O "{}" "{}"'.format(checkpoint_path, zenodo_path))
+        checkpoint_path = Path(checkpoint_path)
+        print('Checkpoint path:', checkpoint_path)
+        
+        # Download checkpoint if needed
+        zenodo_url = 'https://zenodo.org/record/3987831/files/Cnn14_mAP%3D0.431.pth?download=1'
+        download_checkpoint(checkpoint_path, zenodo_url)
+
 
         if device == 'cuda' and torch.cuda.is_available():
             self.device = 'cuda'
@@ -86,13 +135,19 @@ class SoundEventDetection(object):
             device: str, 'cpu' | 'cuda'
             interpolate_mode, 'nearest' |'linear'
         """
-        if not checkpoint_path:
-            checkpoint_path='{}/panns_data/Cnn14_DecisionLevelMax.pth'.format(str(Path.home()))
-        print('Checkpoint path: {}'.format(checkpoint_path))
+        if checkpoint_path is None:
+            checkpoint_path = get_default_checkpoint_path('Cnn14_DecisionLevelMax')
+        
+        checkpoint_path = Path(checkpoint_path)
+        print('Checkpoint path:', checkpoint_path)
 
-        if not os.path.exists(checkpoint_path) or os.path.getsize(checkpoint_path) < 3e8:
-            create_folder(os.path.dirname(checkpoint_path))
-            os.system('wget -O "{}" https://zenodo.org/record/3987831/files/Cnn14_DecisionLevelMax_mAP%3D0.385.pth?download=1'.format(checkpoint_path))
+        zenodo_url = 'https://zenodo.org/record/3987831/files/Cnn14_DecisionLevelMax_mAP%3D0.385.pth?download=1'
+        try:
+            download_checkpoint(checkpoint_path, zenodo_url)
+        except Exception as e:
+            print(f"Failed to download checkpoint: {e}")
+            raise
+
 
         if device == 'cuda' and torch.cuda.is_available():
             self.device = 'cuda'
@@ -110,8 +165,9 @@ class SoundEventDetection(object):
         else:
             self.model = model
         
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = load_checkpoint(checkpoint_path, self.device)
         self.model.load_state_dict(checkpoint['model'])
+
 
         # Parallel
         if 'cuda' in str(self.device):
