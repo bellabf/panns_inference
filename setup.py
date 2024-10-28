@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-setup(  # Use setup instead of setuptools.setup since you imported it directly
+setup(
     name="panns-inference",
     version="0.1.1",
     author="Qiuqiang Kong",
@@ -12,7 +12,7 @@ setup(  # Use setup instead of setuptools.setup since you imported it directly
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/qiuqiangkong/panns_inference",
-    packages=find_packages(),  # Use find_packages since you imported it directly
+    packages=find_packages(),
     package_data={
         'panns_inference': ['data/*.csv'],
     },
@@ -26,8 +26,8 @@ setup(  # Use setup instead of setuptools.setup since you imported it directly
         'matplotlib',
         'librosa',
         'torchlibrosa',
-        'torch>=1.0.0',  # You probably need torch since you're using torchlibrosa
-        'numpy',  # Add since you're using numpy
+        'torch>=1.0.0',
+        'numpy<2.0.0',  
     ],
     python_requires='>=3.6',
 )
