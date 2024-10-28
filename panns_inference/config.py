@@ -7,6 +7,7 @@ import sys
 SAMPLE_RATE = 32000
 CLASSES_NUM = None  
 
+
 def load_label_data() -> tuple[List[str], List[str]]:
     """
     Load and parse the class labels CSV file from the package data.
@@ -20,9 +21,9 @@ def load_label_data() -> tuple[List[str], List[str]]:
         import panns_inference
         package_dir = Path(panns_inference.__file__).parent
         
-        csv_path = Path(os.path.join(package_dir, 'data', 'class_labels_indices.csv'))
+        csv_path = package_dir.joinpath('data', 'class_labels_indices.csv') #join path
         
-        csv_path = csv_path.resolve() # Important : otherwise windows path crashs
+        csv_path = csv_path.absolute() # Important : otherwise windows path crashs
         
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV file not found at {csv_path}")
