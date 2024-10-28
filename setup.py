@@ -28,6 +28,7 @@ setup(
         'torchlibrosa',
         'torch>=1.0.0',
         'numpy<2.0.0',  
+        'certifi',
     ],
     python_requires='>=3.6',
 )
