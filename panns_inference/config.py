@@ -7,17 +7,27 @@ from pathlib import Path
 sample_rate = 32000
 labels_csv_path = Path.home() / 'panns_data' / 'class_labels_indices.csv'
 
-# Download labels if not exist
-if not os.path.isfile(labels_csv_path):
-    os.makedirs(os.path.dirname(labels_csv_path), exist_ok=True)
-    with urllib.request.urlopen('http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/class_labels_indices.csv') as ifh:
-        with open(labels_csv_path, 'wb') as ofh:
-            ofh.write(ifh.read())
+if not labels_csv_path.exists():
+    labels_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        print(f"Downloading labels to {labels_csv_path}")
+        url = 'http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/class_labels_indices.csv'
+        with urllib.request.urlopen(url) as ifh:
+            labels_csv_path.write_bytes(ifh.read())
+    except Exception as e:
+        print(f"Error downloading labels: {e}")
+        raise
 
 # Load label
-with open(labels_csv_path, 'r') as f:
-    reader = csv.reader(f, delimiter=',')
-    lines = list(reader)
+try:
+    with labels_csv_path.open('r') as f:
+        reader = csv.reader(f, delimiter=',')
+        lines = list(reader)
+except Exception as e:
+    print(f"Error reading labels from {labels_csv_path}: {e}")
+    raise
+
 
 labels = []
 ids = []    # Each label has a unique id such as "/m/068hy"
